@@ -42,6 +42,7 @@
 14. `comfyui_shota_sdxl.py` — SDXL beretMixManga翔太テスト
 15. `comfyui_style_consistency_test.py` — スタイル一貫性テスト（翔太6パターン+咲1パターン）✅実行済
 16. `comfyui_shota_refined2.py` — ThickOutline weight調整テスト（0.3〜0.6×3シード）途中中断
+17. `comfyui_ipadapter_style_transfer.py` — IPAdapter PLUSスタイル転写テスト（8パターン自動実行）★NEW
 
 ## 登場人物
 - 咲（人妻・主人公）、丸山（上司・悪役）、翔太（旦那）
@@ -80,7 +81,7 @@ speech bubble, text,
 negativeXL_D
 ```
 
-## 現在のステータス（2026-02-28更新）
+## 現在のステータス（2026-02-28更新 → セッション⑤準備完了）
 
 ### 確定済み
 - ✅ 咲の肌質感・体型（メリハリ体型: slim waist + wide hips + slim legs）
@@ -109,7 +110,38 @@ negativeXL_D
 - **同じ漫画のキャラに見えない** ← これが根本問題
 - 解決策候補: IPAdapter / 共通スタイルLoRA / 翔太LoRA学習 → [詳細](style_consistency_problem.md)
 
-### 進行中 — IPAdapterスタイル転写テスト ← ★次のセッションここから
+### 進行中 — IPAdapterスタイル転写テスト
+
+**2026-02-28セッション⑤（IPAdapterスタイル転写テスト準備）でやったこと:**
+1. **MEMORY.md読み込み → 前セッションの続きを把握**
+2. **IPAdapter API徹底調査（重要な発見あり）**
+   - `weight_type`は`"style transfer"`（小文字・`(SDXL)`なし）← 古いチュートリアルの値は削除済みでエラーになる
+   - `"style transfer (SDXL)"`を使うとバリデーションエラー
+   - IPAdapter Unified Loader preset: `"PLUS (high strength)"` でPLUSモデル自動読み込み
+   - `embeds_scaling`: `"V only"`（デフォルト）= 繊細、`"K+V"` = より強い転写
+   - `"strong style transfer"` = より攻撃的なスタイル転写
+   - `"style transfer precise"` = 構図漏れ防止版（custom layer_weightsでも維持される）
+   - ComfyUI APIノード名: `IPAdapterUnifiedLoader`, `IPAdapterAdvanced`
+3. **テストスクリプト作成: `comfyui_ipadapter_style_transfer.py`**
+   - 8パターン自動テスト（weight 0.6〜1.2 × 3種weight_type × 2種embeds_scaling）
+   - 参照画像: S1（咲基準画像）→ 翔太プロンプトで生成
+   - 出力: `ipa_ST_w06`, `ipa_ST_w08`, `ipa_SST_w08` 等のプレフィックスで区別
+
+**★次のセッション（ローカルMac）でやること:**
+1. `ip-adapter-plus_sdxl_vit-h.safetensors`（848MB）をDL
+   ```bash
+   cd /Applications/Data/Packages/ComfyUI/models/ipadapter/
+   curl -L -o ip-adapter-plus_sdxl_vit-h.safetensors \
+     "https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors"
+   ```
+2. スクリプトをローカルにコピーして実行
+   ```bash
+   # スクリプトを ~/Documents/sta/ にコピー
+   nohup python3 ~/Documents/sta/comfyui_ipadapter_style_transfer.py > ~/Documents/sta/ipadapter_log.txt 2>&1 &
+   tail -f ~/Documents/sta/ipadapter_log.txt
+   ```
+3. 8パターンの結果を比較 → 最適なweight/weight_typeを決定
+4. 良ければ P1コマ3 本番画像を生成
 
 **2026-02-28セッション④（テスト実行〜IPAdapter調査）でやったこと:**
 1. **スタイル一貫性テスト（7枚）実行 → 全枚完了**
@@ -771,6 +803,11 @@ manga style, thin outlines
   - `worm's eye view` — 虫の視点（from belowの強化版）
   - `bust shot` — 胸から上のアップ
   - `arched back` — 腰を反らす（エロさUP）
+- **IPAdapter style transfer weight_typeは`"style transfer"`**: `"style transfer (SDXL)"`は削除済み。使うとバリデーションエラー
+- **IPAdapter PLUSモデルでスタイル転写**: FACEモデルは顔転写用、PLUSモデルが画風転写用
+- **IPAdapter weight_type使い分け**: `"style transfer"`=レイヤー6（画風）、`"composition"`=レイヤー3（構図）、`"strong style transfer"`=より強い画風転写
+- **IPAdapter embeds_scaling**: `"V only"`=繊細、`"K+V"`=より強い。スタイル転写は`"V only"`から試す
+- **IPAdapter Unified Loader preset**: `"PLUS (high strength)"`でPLUSモデル+CLIPエンコーダー自動読み込み
 - **BREAK活用**: SDXL系（beretMixManga含む）で使える。75トークンで強制チャンク分割
   - キャラと体位の間 → 髪色・体型の干渉防止
   - 男と女の間 → **chubby等が咲に影響するのを防ぐ**（特に重要）

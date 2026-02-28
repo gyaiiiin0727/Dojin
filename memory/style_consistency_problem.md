@@ -91,18 +91,39 @@
 - **LoRAなしキャラにはIPAdapterスタイル転写が必要**
 
 ## 次のアクション ← ★ここから再開
-1. **`ip-adapter-plus_sdxl_vit-h.safetensors`（848MB）をDL**
-   - URL: `https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors`
-   - 配置先: `/Applications/Data/Packages/ComfyUI/models/ipadapter/`
-   - CLIPエンコーダーは既存の `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` を流用（追加DL不要）
-2. **IPAdapter Advanced + style transfer で翔太を生成**
-   - 参照画像: `style_S1_saki_baseline_00001_.png`（咲の基準画像）
-   - weight_type: `style transfer`（UNetレイヤー6のみ）
-   - weight: 0.8 → 0.6〜1.2で調整
-   - ワークフロー: Checkpoint → IPAdapter Unified Loader(PLUS) → IPAdapter Advanced → KSampler
-   - `style transfer precise` も試す（構図漏れ防止版）
-3. **良ければ P1コマ3 本番画像を生成**
-4. **最終手段: 翔太LoRA学習**
+
+### Phase 0: モデルDL（1回だけ）
+```bash
+cd /Applications/Data/Packages/ComfyUI/models/ipadapter/
+curl -L -o ip-adapter-plus_sdxl_vit-h.safetensors \
+  "https://huggingface.co/h94/IP-Adapter/resolve/main/sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors"
+```
+- CLIPエンコーダーは既存の `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` を流用（追加DL不要）
+
+### Phase 1: 自動テスト実行
+- **スクリプト**: `comfyui_ipadapter_style_transfer.py`（8パターン自動実行）
+- 参照画像: `style_S1_saki_baseline_00001_.png`（咲の基準画像）
+- テスト内容:
+  - `style transfer` weight 0.6 / 0.8 / 1.0 / 1.2
+  - `strong style transfer` weight 0.8 / 1.0
+  - `style transfer precise` weight 0.8
+  - `style transfer` + `K+V` embeds_scaling weight 0.8
+
+### Phase 2: 結果評価
+- 咲(S1)と同じグレースケール画風になっているか
+- オレンジアーティファクトが消えているか
+- faceless maleが正しく動作しているか
+- 線の繊細さ・グレートーンが出ているか
+
+### Phase 3: 本番画像生成
+- 良ければ P1コマ3 用の翔太本番画像を生成
+- **最終手段: 翔太LoRA学習**
+
+### API重要メモ（2026-02-28調査）
+- **`weight_type`は`"style transfer"`**: `"style transfer (SDXL)"`は削除済み → 使うとバリデーションエラー
+- **preset**: `"PLUS (high strength)"` で自動的にPLUSモデル+CLIPエンコーダー読み込み
+- **`embeds_scaling`**: `"V only"`（繊細）or `"K+V"`（強い）
+- **ノード名**: `IPAdapterUnifiedLoader`, `IPAdapterAdvanced`
 
 ## 重要な制約
 - **中途半端な品質で見せない**: 十分に調査・テストしてから提示
